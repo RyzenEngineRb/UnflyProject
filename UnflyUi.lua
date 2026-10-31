@@ -47,6 +47,7 @@ local UIS = Service("UserInputService")
 local Players = Service("Players")
 local HttpService = Service("HttpService")
 local RunService = Service("RunService")
+local ContextActionService = Service("ContextActionService")
 local TextService = Service("TextService")
 local LocalPlayer = Players.LocalPlayer
 
@@ -466,6 +467,7 @@ end
 
 local function Elements(W, inner, rowsInfo)
 	local E, order = {}, 0
+	local LX = W.RowIcons and 40 or 14
 
 	local function lock(v)
 		for _, s in ipairs(W.CurrentScrolls or {}) do
@@ -481,14 +483,16 @@ local function Elements(W, inner, rowsInfo)
 				Position = UDim2.fromOffset(8, 0), Size = UDim2.new(1, -16, 0, 1), BackgroundColor3 = T.Line, BackgroundTransparency = 0.55, BorderSizePixel = 0, Parent = r,
 			})
 		end
-		local ic = Icon(icon or defIcon or "ring", r, T.IconC, 18)
-		ic.Position = UDim2.new(0, 12, 0, (iconY or ((h or D.ROW) / 2)) - 9)
+		if W.RowIcons then
+			local ic = Icon(icon or defIcon or "ring", r, T.IconC, 18)
+			ic.Position = UDim2.new(0, 12, 0, (iconY or ((h or D.ROW) / 2)) - 9)
+		end
 		return r
 	end
 
 	local function Lbl(parent, text, rightW, props)
 		local p = {
-			BackgroundTransparency = 1, Position = UDim2.fromOffset(40, 0), Size = UDim2.new(1, -(40 + (rightW or 60)), 1, 0), Font = Enum.Font.GothamMedium,
+			BackgroundTransparency = 1, Position = UDim2.fromOffset(LX, 0), Size = UDim2.new(1, -(LX + (rightW or 60)), 1, 0), Font = Enum.Font.GothamMedium,
 			Text = text or "", TextColor3 = T.Text, TextSize = D.TXT, TextXAlignment = Enum.TextXAlignment.Left, TextTruncate = Enum.TextTruncate.AtEnd, Parent = parent,
 		}
 		for k, v in pairs(props or {}) do p[k] = v end
@@ -599,6 +603,8 @@ local function Elements(W, inner, rowsInfo)
 				Position = UDim2.new(0, obj.Value and (TW - TH / 2) or (TH / 2), 0.5, 0),
 				BackgroundColor3 = obj.Value and Color3.fromRGB(245, 245, 248) or T.Knob,
 			}, 0.15)
+			knob.Size = UDim2.fromOffset(TH + 2, TH - 8)
+			Tw(knob, { Size = UDim2.fromOffset(TH - 6, TH - 6) }, 0.22, Enum.EasingStyle.Back)
 		end
 		local loopConn
 		local function updateLoop()
@@ -632,7 +638,7 @@ local function Elements(W, inner, rowsInfo)
 		local min, max = cfg.Min or 0, cfg.Max or 100
 		local inc = cfg.Increment or (cfg.Rounding and (1 / 10 ^ cfg.Rounding)) or 1
 		local dec = Decimals(inc)
-		local LW = MOBILE and 112 or 96
+		local LW = MOBILE and 120 or 108
 		local r = Row(cfg.Icon, "bolt")
 		Lbl(r, cfg.Name, 12, { Size = UDim2.fromOffset(LW, D.ROW) })
 		local val = New("TextLabel", {
@@ -640,7 +646,7 @@ local function Elements(W, inner, rowsInfo)
 			Text = "", TextSize = D.TXT, TextColor3 = T.Dim, TextXAlignment = Enum.TextXAlignment.Right, Parent = r,
 		})
 		local bar = New("Frame", {
-			AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 40 + LW, 0.5, 0), Size = UDim2.new(1, -(40 + LW + 66), 0, 6), BackgroundColor3 = T.Off, BorderSizePixel = 0, Parent = r,
+			AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, LX + LW, 0.5, 0), Size = UDim2.new(1, -(LX + LW + 66), 0, 6), BackgroundColor3 = T.Off, BorderSizePixel = 0, Parent = r,
 		}, { Corner(3), Stroke(T.Line, 1, 0.6) })
 		local fill = New("Frame", { Size = UDim2.fromScale(0, 1), BackgroundColor3 = W.Accent, BorderSizePixel = 0, Parent = bar }, {
 			Corner(3),
@@ -664,12 +670,18 @@ local function Elements(W, inner, rowsInfo)
 		end
 		function obj:Get() return obj.Value end
 		local hit = New("TextButton", {
-			BackgroundTransparency = 1, Text = "", AutoButtonColor = false, AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 32 + LW, 0.5, 0),
-			Size = UDim2.new(1, -(32 + LW + 58), 1, 0), ZIndex = 4, Parent = r,
+			BackgroundTransparency = 1, Text = "", AutoButtonColor = false, AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, LX - 8 + LW, 0.5, 0),
+			Size = UDim2.new(1, -(LX - 8 + LW + 58), 1, 0), ZIndex = 4, Parent = r,
 		})
 		Drag(hit, function(i)
 			obj:Set(min + (max - min) * math.clamp((i.Position.X - bar.AbsolutePosition.X) / math.max(bar.AbsoluteSize.X, 1), 0, 1))
-		end, function() lock(false) end, function() lock(true) end, W.Conns)
+		end, function()
+			lock(false)
+			Tw(knob, { Size = UDim2.fromOffset(KS + 5, KS + 5) }, 0.12)
+		end, function()
+			lock(true)
+			Tw(knob, { Size = UDim2.fromOffset(KS, KS) }, 0.15)
+		end, W.Conns)
 		obj:Set(cfg.Default or min, true)
 		Register(cfg, obj)
 		if cfg.Default then Commit(cfg, obj, false) end
@@ -952,9 +964,9 @@ local function Elements(W, inner, rowsInfo)
 		cfg = cfg or {}
 		local h = D.ROW + 20
 		local r = Row(cfg.Icon, "link", h, D.ROW / 2)
-		Lbl(r, cfg.Name or "Link", 120, { Size = UDim2.new(1, -(40 + 120), 0, D.ROW) })
+		Lbl(r, cfg.Name or "Link", 120, { Size = UDim2.new(1, -(LX + 120), 0, D.ROW) })
 		local urlLabel = New("TextLabel", {
-			BackgroundTransparency = 1, Position = UDim2.fromOffset(40, D.ROW - 4), Size = UDim2.new(1, -52, 0, 16), Font = Enum.Font.Gotham, Text = (type(cfg.Url) == "string" and cfg.Url ~= "") and cfg.Url or "Not set",
+			BackgroundTransparency = 1, Position = UDim2.fromOffset(LX, D.ROW - 4), Size = UDim2.new(1, -(LX + 12), 0, 16), Font = Enum.Font.Gotham, Text = (type(cfg.Url) == "string" and cfg.Url ~= "") and cfg.Url or "Not set",
 			TextSize = D.TXT - 1, TextColor3 = T.Dim, TextXAlignment = Enum.TextXAlignment.Left, TextTruncate = Enum.TextTruncate.AtEnd, Parent = r,
 		})
 		local f = Field(r, 78, { Position = UDim2.new(1, -12, 0, D.ROW / 2) })
@@ -1061,7 +1073,7 @@ function Library:CreateWindow(cfg)
 	for k in pairs(Library.Options) do Library.Options[k] = nil end
 	for k in pairs(Library.Listeners) do Library.Listeners[k] = nil end
 	local W = {
-		Conns = {}, AccentFns = {}, NeonFns = {}, TransObjs = {}, Tabs = {}, MainTabs = {}, FlagObjs = {}, MemCfg = {}, LogoSlots = {}, NameFns = {}, TabByName = {}, Loops = {}, UnloadFns = {}, LinkObjs = {}, State = "open",
+		Conns = {}, AccentFns = {}, NeonFns = {}, TransObjs = {}, Tabs = {}, MainTabs = {}, FlagObjs = {}, MemCfg = {}, LogoSlots = {}, NameFns = {}, TabByName = {}, Loops = {}, UnloadFns = {}, LinkObjs = {}, State = "open", RowIcons = cfg.ElementIcons == true,
 		Trans = 0, UserScale = 1, CurrentConfig = "Default", ToggleKey = cfg.ToggleKey or Enum.KeyCode.RightShift,
 		Accent = cfg.Accent or Color3.fromRGB(205, 205, 212), Neon = cfg.Neon or Color3.fromRGB(150, 210, 255),
 	}
@@ -1128,21 +1140,25 @@ function Library:CreateWindow(cfg)
 		}),
 	})
 	W.Root = root
+	TweenService:Create(root.UIGradient, TweenInfo.new(30, Enum.EasingStyle.Linear, Enum.EasingDirection.Out, -1), { Rotation = 480 }):Play()
 	W:Reg(root, 0.02)
 	local rs = Stroke(Color3.fromRGB(150, 150, 158), 1.4, 0.5)
 	rs.Parent = root
-	New("UIGradient", {
+	local rsGradient = New("UIGradient", {
 		Rotation = 45,
 		Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(0.5, 0.7), NumberSequenceKeypoint.new(1, 0.1) }),
 		Parent = rs,
 	})
+	TweenService:Create(rsGradient, TweenInfo.new(9, Enum.EasingStyle.Linear, Enum.EasingDirection.Out, -1), { Rotation = 405 }):Play()
 	local uiscale = New("UIScale", { Parent = root })
 	W.Scale = uiscale
 
 	local function ApplyScale()
 		local cam = workspace.CurrentCamera
 		local vp = cam and cam.ViewportSize or Vector2.new(1280, 720)
-		uiscale.Scale = math.max(0.35, math.min(1, (vp.X - 16) / W.Cur.X, (vp.Y - 16) / W.Cur.Y)) * W.UserScale
+		local target = math.max(0.35, math.min(1, (vp.X - 16) / W.Cur.X, (vp.Y - 16) / W.Cur.Y)) * W.UserScale
+		W.TargetScale = target
+		uiscale.Scale = target
 	end
 
 	function W:SetScale(s)
@@ -1154,6 +1170,32 @@ function Library:CreateWindow(cfg)
 	if workspace.CurrentCamera then
 		table.insert(W.Conns, workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(ApplyScale))
 	end
+
+	local function Pulse(o, props, t)
+		TweenService:Create(o, TweenInfo.new(t, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), props):Play()
+	end
+
+	local particleLayer = New("Frame", {
+		Name = "Particles", Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, ZIndex = 1, ClipsDescendants = true, Parent = root,
+	})
+	local function Particle()
+		local size = math.random(2, 4)
+		local p = New("Frame", {
+			AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(math.random(), 0, 1.1, 0), Size = UDim2.fromOffset(size, size), BackgroundColor3 = Color3.new(1, 1, 1),
+			BackgroundTransparency = 0.82, BorderSizePixel = 0, ZIndex = 1, Parent = particleLayer,
+		}, { New("UICorner", { CornerRadius = UDim.new(1, 0) }) })
+		Pulse(p, { BackgroundTransparency = 0.97 }, 1 + math.random() * 2)
+		task.spawn(function()
+			task.wait(math.random() * 10)
+			if not p.Parent then return end
+			TweenService:Create(
+				p,
+				TweenInfo.new(9 + math.random() * 9, Enum.EasingStyle.Linear, Enum.EasingDirection.Out, -1),
+				{ Position = UDim2.new(math.random(), 0, -0.1, 0) }
+			):Play()
+		end)
+	end
+	for _ = 1, (MOBILE and 10 or 16) do Particle() end
 
 	local overlay = New("Frame", { Name = "Overlay", Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, ZIndex = 60, Parent = root })
 	W.Overlay = overlay
@@ -1239,11 +1281,21 @@ function Library:CreateWindow(cfg)
 	end
 	Shard(0.2, 70, 28, 0.93)
 	Shard(0.62, 120, 28, 0.95)
+	local headerSweep = New("Frame", {
+		AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(-0.2, 0, 0.5, 0), Size = UDim2.fromOffset(90, HEAD * 3), Rotation = 24, BackgroundColor3 = Color3.new(1, 1, 1),
+		BorderSizePixel = 0, ZIndex = 2, Parent = header,
+	}, { New("UIGradient", { Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.5, 0.94), NumberSequenceKeypoint.new(1, 1) }) }) })
+	TweenService:Create(headerSweep, TweenInfo.new(8, Enum.EasingStyle.Linear, Enum.EasingDirection.Out, -1), { Position = UDim2.new(1.2, 0, 0.5, 0) }):Play()
 	New("Frame", {
 		AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.fromScale(0.5, 1), Size = UDim2.new(1, 0, 0, 1), BackgroundColor3 = T.Line, BackgroundTransparency = 0.3, BorderSizePixel = 0, ZIndex = 4, Parent = header,
 	})
 
 	local logoScale = HEAD / 64
+	local logoHalo = New("Frame", {
+		AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(16 + 28 * logoScale, HEAD / 2), Size = UDim2.fromOffset(HEAD * 0.95, HEAD * 0.95),
+		BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 0.95, BorderSizePixel = 0, ZIndex = 3, Parent = header,
+	}, { New("UICorner", { CornerRadius = UDim.new(1, 0) }) })
+	Pulse(logoHalo, { BackgroundTransparency = 0.88 }, 2.4)
 	local logo = LogoSlot(header, 56 * logoScale, 44 * logoScale, logoScale, false)
 	logo.Position = UDim2.fromOffset(16, (HEAD - 44 * logoScale) / 2)
 	logo.ZIndex = 4
@@ -1472,6 +1524,10 @@ function Library:CreateWindow(cfg)
 		W:ClosePopup()
 		W.State = state
 		root.Visible = (state == "open")
+		if state == "open" and W.TargetScale then
+			uiscale.Scale = W.TargetScale * 0.94
+			Tw(uiscale, { Scale = W.TargetScale }, 0.28, Enum.EasingStyle.Back)
+		end
 		collapsed.Visible = (state == "collapsed")
 	end
 	function W:SetVisible(v) W:SetState(v and "open" or "hidden") end
@@ -1569,6 +1625,32 @@ function Library:CreateWindow(cfg)
 	end
 	W.NeonBtn = nb
 
+	local SHIELD_NAME = "UnflyUiShield"
+	local function Inside(obj, pos)
+		if not obj or not obj.Visible then return false end
+		local p, sz = obj.AbsolutePosition, obj.AbsoluteSize
+		return pos.X >= p.X and pos.X <= p.X + sz.X and pos.Y >= p.Y and pos.Y <= p.Y + sz.Y
+	end
+	pcall(function()
+		ContextActionService:BindActionAtPriority(
+			SHIELD_NAME,
+			function(_, _, input)
+				local pos = input.Position
+				if Inside(root, pos) or Inside(collapsed, pos) or Inside(nb, pos) then
+					return Enum.ContextActionResult.Sink
+				end
+				return Enum.ContextActionResult.Pass
+			end,
+			false,
+			4000,
+			Enum.UserInputType.MouseButton1,
+			Enum.UserInputType.MouseButton2,
+			Enum.UserInputType.MouseWheel,
+			Enum.UserInputType.Touch
+		)
+	end)
+	for _, f in ipairs({ sidebar, content, bottom }) do f.Active = true end
+
 	function W:SetFloatButton(v) nb.Visible = v end
 
 	local function MakeTab(tcfg, hidden)
@@ -1636,6 +1718,8 @@ function Library:CreateWindow(cfg)
 			end
 			W.CurrentScrolls = tab.Scrolls
 			W.CurrentTab = tab
+			tab.Page.Position = UDim2.fromOffset(0, 12)
+			Tw(tab.Page, { Position = UDim2.fromOffset(0, 0) }, 0.28, Enum.EasingStyle.Quart)
 			if W.SettingsBtn then
 				local on = (tab.Hidden == true)
 				Tw(W.SettingsBtn, { BackgroundTransparency = on and 0.55 or 1 }, 0.15)
@@ -1657,10 +1741,11 @@ function Library:CreateWindow(cfg)
 			}, { Corner(14), Stroke(T.Line, 1, 0.3) })
 			W:Reg(b, 0.2)
 			local function shard(x, w, rot, tr)
-				New("Frame", {
+				local f = New("Frame", {
 					AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(x, 0, 0.5, 0), Size = UDim2.fromOffset(w, bh * 3), Rotation = rot, BackgroundColor3 = Color3.new(1, 1, 1),
 					BorderSizePixel = 0, ZIndex = 3, Parent = b,
 				}, { New("UIGradient", { Rotation = 90, Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.5, tr), NumberSequenceKeypoint.new(1, 1) }) }) })
+				Pulse(f, { Position = UDim2.new(x + 0.03, 0, 0.5, 0) }, 3.5 + math.random() * 3)
 			end
 			shard(0.72, 54, 32, 0.8)
 			shard(0.82, 90, -28, 0.86)
@@ -2061,6 +2146,7 @@ function Library:CreateWindow(cfg)
 		for _, fn in ipairs(W.UnloadFns) do pcall(fn) end
 		for _, c in pairs(W.Loops) do pcall(function() c:Disconnect() end) end
 		for _, c in ipairs(W.Conns) do pcall(function() c:Disconnect() end) end
+		pcall(function() ContextActionService:UnbindAction(SHIELD_NAME) end)
 		gui:Destroy()
 		if Library.Active == W then Library.Active = nil end
 		if env.UnflyUiWindow == W then env.UnflyUiWindow = nil end
